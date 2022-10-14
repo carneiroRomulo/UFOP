@@ -72,12 +72,17 @@ data Mine = Mine {
               elements :: [Line]
             } deriving (Eq, Ord)
 
+-- QUESTION 07
 instance Show Mine where
   show mine = unlines (map show (elements mine))
 
 -- QUESTION 04
+-- CHeck if lines and Columns must have same length as in the mine and a mine needs at least one entry point in the boarder.
 validMine :: Mine -> Bool
-validMine mine = (lines mine) == length (elements mine) && all (\line -> (columns mine) == length line) (elements mine)
+validMine mine = 
+    (lines mine) == length (elements mine) 
+    && all (\line -> (columns mine) == length line) (elements mine)
+    && any (\line -> any (\element -> element == Entry) line) (elements mine)
 
 -- QUESTION 05
 exampleMine :: Mine
@@ -98,24 +103,21 @@ exampleMine = Mine {
                 [Wall, Earth, Rock, Earth, Earth, Empty, Earth, Earth, Earth, Material 150, Material 150, Earth, Earth, Rock, Wall],
                 [Wall, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Material 200, Wall],
                 [Wall, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Earth, Empty, Empty, Empty, Earth, Wall],
-                [Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall]]
+                [Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Wall, Entry, Wall]]
 }
 
 -- QUESTION 06
 -- runParser (pMine) (show exampleMine)
 pLine :: Parser Char Line
-pLine = undefined
+pLine = many pElement
 
 pMine :: Parser Char Mine
-pMine = undefined
--- pMine = do
---     n <- natural
---     symbol ' '
---     m <- natural
---     symbol '\n'
---     lines <- pLine
---     return (Mine n m lines)
-
+pMine = f <$> endBy pLine (symbol '\n')
+    where f x = Mine {
+        lines = length x,
+        columns = length (head x),
+        elements = x
+    }
 
 data Instr = L -- move para esquerda
            | R -- move para direita
@@ -125,47 +127,159 @@ data Instr = L -- move para esquerda
            | S -- para para recarga.
            deriving (Eq,Ord,Show,Enum)
 
+-- QUESTION 08
 pInstr :: Parser Char Instr
-pInstr = undefined
+pInstr = f <$> (symbol 'L' <|> symbol 'R' <|> symbol 'U' <|> symbol 'D' <|> symbol 'C' <|> symbol 'S')
+    where f 'L' = L
+          f 'R' = R
+          f 'U' = U
+          f 'D' = D
+          f 'C' = C
+          f 'S' = S
 
+-- QUESTION 09
 pProgram :: Parser Char [Instr]
-pProgram = undefined
+pProgram = many pInstr
 
 type Conf = (Robot, Mine)
-
 type ConfM a = State Conf a
 
-
+-- QUESTION 10
 current :: ConfM Point
-current = undefined
+current = do
+    (robot, mine) <- get
+    return (position robot)
 
 mine :: ConfM Mine
-mine = undefined
+mine = do
+    (_, mine) <- get
+    return mine
 
 enoughEnergy :: Int -> ConfM Bool
-enoughEnergy = undefined
-
+enoughEnergy n = do
+    (robot, _) <- get
+    return (energy robot >= n)
+    
 incEnergy :: ConfM ()
-incEnergy = undefined
+incEnergy = do
+    (robot, mine) <- get
+    put (robot {energy = energy robot + 1}, mine)
 
+-- QUESTION 11 - Determine if a instruction is valid or not based on the previous rules.
 valid :: Instr -> ConfM Bool
-valid = undefined
+valid instr = do
+    (robot, mine) <- get
+    case instr of
+        L -> do
+            (x, y) <- current
+            return (x > 0 && (elements mine !! y) !! (x - 1) /= Wall)
+        R -> do
+            (x, y) <- current
+            return (x < (columns mine) - 1 && (elements mine !! y) !! (x + 1) /= Wall)
+        U -> do
+            (x, y) <- current
+            return (y > 0 && (elements mine !! (y - 1)) !! x /= Wall)
+        D -> do
+            (x, y) <- current
+            return (y < (lines mine) - 1 && (elements mine !! (y + 1)) !! x /= Wall)
+        C -> do
+            (x, y) <- current
+            return ((elements mine !! y) !! x /= Empty && (elements mine !! y) !! x /= Entry)
+        S -> do
+            return True
 
-
+-- QUESTION 12 - From an instruction, updates the mine configuration, if it is valid.
 updateMine :: Instr -> ConfM ()
-updateMine = undefined
+updateMine instr = valid instr >>= \validInstr -> if validInstr then do
+    (robot, mine) <- get
+    case instr of
+        L -> do
+            (x, y) <- current
+            put (robot {position = (x - 1, y)}, mine)
+        R -> do
+            (x, y) <- current
+            put (robot {position = (x + 1, y)}, mine)
+        U -> do
+            (x, y) <- current
+            put (robot {position = (x, y - 1)}, mine)
+        D -> do
+            (x, y) <- current
+            put (robot {position = (x, y + 1)}, mine)
+        C -> do
+            (x, y) <- current
+            let element = (elements mine !! y) !! x
+            case element of
+                Material n -> do
+                    put (robot {position = (x, y), energy = energy robot + n}, mine)
+                _ -> put (robot {position = (x, y)}, mine)
+        S -> do
+            put (robot {energy = 0}, mine)
+    else return ()
 
+-- QUESTION 13
 exec :: Instr -> ConfM ()
-exec = undefined
+exec = exec' where
+    exec' instr = do
+        (robot, mine) <- get
+        case instr of
+            L -> do
+                (x, y) <- current
+                put (robot {position = (x - 1, y)}, mine)
+            R -> do
+                (x, y) <- current
+                put (robot {position = (x + 1, y)}, mine)
+            U -> do
+                (x, y) <- current
+                put (robot {position = (x, y - 1)}, mine)
+            D -> do
+                (x, y) <- current
+                put (robot {position = (x, y + 1)}, mine)
+            C -> do
+                updateMine instr
+                (x, y) <- current
+                put (robot {position = (x, y), energy = energy robot + 1}, mine)
+            S -> do
+                put (robot {energy = 0}, mine)
 
+-- QUESTION 14
 initRobot :: Mine -> Robot
-initRobot = undefined
+initRobot mine = initRobot' 0 0 mine where
+    initRobot' x y mine
+        | (elements mine !! y) !! x == Entry = Robot 100 (x, y) 0
+        | x < (columns mine) - 1 = initRobot' (x + 1) y mine
+        | otherwise = initRobot' 0 (y + 1) mine
 
+-- QUESTION 15
 run :: [Instr] -> Mine -> Mine
 run = undefined
+-- run = run' where
+--     run' instrs mine = do
+--         let robot = initRobot mine
+--         let conf = (robot, mine)
+--         let confM = execState (mapM_ exec instrs) conf
+--         let (_, mine') = confM
+--         mine'
 
+-- run = run' . initRobot where
+--     run' robot mine = snd (execState (run'' (robot, mine)) (robot, mine))
+--     run'' (robot, mine) = do
+--         (instr:instrs) <- get
+--         if (valid instr)
+--             then do
+--                 exec instr
+--                 run'' (robot, mine)
+--             else return ()
+
+-- QUESTION 16
+-- Implement a function that reads ".ldm" files containing mine descriptions and returns a value of type Mine or an error message indicating that the file could not be read.
 readLDM :: String -> IO (Either String Mine)
 readLDM = undefined
+-- readLDM x = do
+--     content <- readFile x
+--     | runParser pMine content == [] = return (Left "Could not read file")
+--     | otherwise = return (Right (fst (head (runParser pMine content))))
 
+
+-- QUESTION 17
 readLCR :: String -> IO (Either String [Instr])
 readLCR = undefined
