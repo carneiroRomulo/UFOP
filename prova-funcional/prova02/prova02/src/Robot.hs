@@ -1,7 +1,7 @@
 module Robot ( readLDM
              , readLCR
              , run
-             )where
+             ) where
 
 import Control.Monad.State
 import Parsing 
@@ -175,22 +175,22 @@ valid instr = do
             return (x > 0 && (elements mine !! y) !! (x - 1) /= Wall)
         R -> do
             (x, y) <- current
-            return (x < (columns mine) - 1 && (elements mine !! y) !! (x + 1) /= Wall)
+            return (x < (columns mine - 1) && (elements mine !! y) !! (x + 1) /= Wall)
         U -> do
             (x, y) <- current
             return (y > 0 && (elements mine !! (y - 1)) !! x /= Wall)
         D -> do
             (x, y) <- current
-            return (y < (lines mine) - 1 && (elements mine !! (y + 1)) !! x /= Wall)
+            return (y < (lines mine - 1) && (elements mine !! (y + 1)) !! x /= Wall)
         C -> do
             (x, y) <- current
-            return ((elements mine !! y) !! x /= Empty && (elements mine !! y) !! x /= Entry)
+            return ((elements mine !! y) !! x == Material 50 || (elements mine !! y) !! x == Material 100 || (elements mine !! y) !! x == Material 150 || (elements mine !! y) !! x == Material 200)
         S -> do
-            return True
+            return (energy robot < 100)
 
 -- QUESTION 12 - From an instruction, updates the mine configuration, if it is valid.
 updateMine :: Instr -> ConfM ()
-updateMine instr = valid instr >>= \validInstr -> if validInstr then do
+updateMine instr = do
     (robot, mine) <- get
     case instr of
         L -> do
@@ -207,39 +207,21 @@ updateMine instr = valid instr >>= \validInstr -> if validInstr then do
             put (robot {position = (x, y + 1)}, mine)
         C -> do
             (x, y) <- current
-            let element = (elements mine !! y) !! x
-            case element of
-                Material n -> do
-                    put (robot {position = (x, y), energy = energy robot + n}, mine)
-                _ -> put (robot {position = (x, y)}, mine)
+            case (elements mine !! y) !! x of
+                Material 50 -> do
+                    put (robot {position = (x, y), energy = energy robot + 50}, mine {elements = (take y (elements mine)) ++ [(take x ((elements mine) !! y)) ++ [Empty] ++ (drop (x + 1) ((elements mine) !! y))] ++ (drop (y + 1) (elements mine))})
+                Material 100 -> do
+                    put (robot {position = (x, y), energy = energy robot + 100}, mine {elements = (take y (elements mine)) ++ [(take x ((elements mine) !! y)) ++ [Empty] ++ (drop (x + 1) ((elements mine) !! y))] ++ (drop (y + 1) (elements mine))})
+                Material 150 -> do
+                    put (robot {position = (x, y), energy = energy robot + 150}, mine {elements = (take y (elements mine)) ++ [(take x ((elements mine) !! y)) ++ [Empty] ++ (drop (x + 1) ((elements mine) !! y))] ++ (drop (y + 1) (elements mine))})
+                Material 200 -> do
+                    put (robot {position = (x, y), energy = energy robot + 200}, mine {elements = (take y (elements mine)) ++ [(take x ((elements mine) !! y)) ++ [Empty] ++ (drop (x + 1) ((elements mine) !! y))] ++ (drop (y + 1) (elements mine))})
         S -> do
-            put (robot {energy = 0}, mine)
-    else return ()
+            put (robot {energy = 100}, mine)
 
 -- QUESTION 13
 exec :: Instr -> ConfM ()
-exec = exec' where
-    exec' instr = do
-        (robot, mine) <- get
-        case instr of
-            L -> do
-                (x, y) <- current
-                put (robot {position = (x - 1, y)}, mine)
-            R -> do
-                (x, y) <- current
-                put (robot {position = (x + 1, y)}, mine)
-            U -> do
-                (x, y) <- current
-                put (robot {position = (x, y - 1)}, mine)
-            D -> do
-                (x, y) <- current
-                put (robot {position = (x, y + 1)}, mine)
-            C -> do
-                updateMine instr
-                (x, y) <- current
-                put (robot {position = (x, y), energy = energy robot + 1}, mine)
-            S -> do
-                put (robot {energy = 0}, mine)
+exec = undefined
 
 -- QUESTION 14
 initRobot :: Mine -> Robot
@@ -252,34 +234,13 @@ initRobot mine = initRobot' 0 0 mine where
 -- QUESTION 15
 run :: [Instr] -> Mine -> Mine
 run = undefined
--- run = run' where
---     run' instrs mine = do
---         let robot = initRobot mine
---         let conf = (robot, mine)
---         let confM = execState (mapM_ exec instrs) conf
---         let (_, mine') = confM
---         mine'
 
--- run = run' . initRobot where
---     run' robot mine = snd (execState (run'' (robot, mine)) (robot, mine))
---     run'' (robot, mine) = do
---         (instr:instrs) <- get
---         if (valid instr)
---             then do
---                 exec instr
---                 run'' (robot, mine)
---             else return ()
-
--- QUESTION 16
--- Implement a function that reads ".ldm" files containing mine descriptions and returns a value of type Mine or an error message indicating that the file could not be read.
+-- QUESTION 16 - Implement a function that reads ".ldm" files containing mine descriptions and returns a value of type Mine or an error message indicating that the file could not be read.
 readLDM :: String -> IO (Either String Mine)
 readLDM = undefined
--- readLDM x = do
---     content <- readFile x
---     | runParser pMine content == [] = return (Left "Could not read file")
---     | otherwise = return (Right (fst (head (runParser pMine content))))
-
-
--- QUESTION 17
+    
+-- QUESTION 17 - Implement a function that reads ".lcr" files containing robot descriptions and returns a value of type [Instr] or an error message indicating that the file could not be read.
 readLCR :: String -> IO (Either String [Instr])
 readLCR = undefined
+
+
