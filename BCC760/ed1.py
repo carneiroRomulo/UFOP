@@ -14,6 +14,7 @@ def gaussian_eliminitation_without_pivoting(A: list[list], b: list, R: list) -> 
             b[row] += multiplier * b[depth]
     
     C3 = round(b[2] / A[2][2], DECIMAL_PLACES)
+    print(b, A)
     C2 = round((b[1] - (C3 * A[1][2])) / A[1][1], DECIMAL_PLACES)
     C1 = round((b[0] - (C3 * A[0][2]) - (C2 * A[0][1])) / A[0][0], DECIMAL_PLACES)
     C = [C1, C2, C3]
@@ -49,11 +50,12 @@ def gaussian_eliminitation_with_pivoting(A, b):
             multiplier = -(A[j][i] / pivo)
             for k in range(0, 3):
                 A[j][k] += multiplier * A[i][k]
+                A[j][k] = round(A[j][k], 4)
             b[j] += multiplier * b[i]
 
-    C3 = round(b[2] / A[2][2], DECIMAL_PLACES)
-    C2 = round((b[1] - (C3 * A[1][2])) / A[1][1], DECIMAL_PLACES)
-    C1 = round((b[0] - (C3 * A[0][2]) - (C2 * A[0][1])) / A[0][0], DECIMAL_PLACES)
+    C3 = round((b[2] / A[2][2]), DECIMAL_PLACES)
+    C2 = round(((b[1] - (C3 * A[1][2])) / A[1][1]), DECIMAL_PLACES)
+    C1 = round(((b[0] - (C3 * A[0][2]) - (C2 * A[0][1])) / A[0][0]), DECIMAL_PLACES)
     C = [C1, C2, C3]
     return C
 

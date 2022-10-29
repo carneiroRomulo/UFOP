@@ -1,4 +1,4 @@
-# Changelog for aula01
+# Changelog for `prova02`
 
 All notable changes to this project will be documented in this file.
 
